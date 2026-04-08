@@ -74,6 +74,7 @@ test("continue is not exposed as a user-facing command", () => {
   const commandFiles = fs.readdirSync(path.join(PLUGIN_ROOT, "commands")).sort();
   assert.deepEqual(commandFiles, [
     "adversarial-review.md",
+    "azure-setup.md",
     "cancel.md",
     "rescue.md",
     "result.md",
@@ -203,7 +204,7 @@ test("setup command can offer Codex install and points users to Azure config", (
   assert.match(setup, /AskUserQuestion/);
   assert.match(setup, /npm install -g @openai\/codex/);
   assert.match(setup, /codex-companion\.mjs" setup --json \$ARGUMENTS/);
-  assert.match(readme, /azure-claude-codex-plugin\.json/);
+  assert.match(readme, /codex:azure-setup/);
   assert.match(readme, /offer to install Codex for you/i);
   assert.match(readme, /\/codex:setup --enable-review-gate/);
   assert.match(readme, /\/codex:setup --disable-review-gate/);

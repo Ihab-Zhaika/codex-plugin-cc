@@ -28,76 +28,35 @@ async function waitFor(predicate, { timeoutMs = 5000, intervalMs = 50 } = {}) {
   throw new Error("Timed out waiting for condition.");
 }
 
-test("setup reports not ready without Azure config", () => {
+test("azure-setup writes config and credentials", () => {
   const binDir = makeTempDir();
   installFakeCodex(binDir);
 
-  const result = run("node", [SCRIPT, "setup", "--json"], {
-    cwd: ROOT,
-    env: buildEnv(binDir)
-  });
-
-  assert.equal(result.status, 0);
-  const payload = JSON.parse(result.stdout);
-  assert.equal(payload.ready, false);
-  assert.equal(payload.auth.loggedIn, false);
-  assert.match(payload.codex.detail, /advanced runtime available/);
-  assert.equal(payload.sessionRuntime.mode, "direct");
-});
-
-test("setup reports ready with Azure config", () => {
-  const binDir = makeTempDir();
-  installFakeCodex(binDir);
-
-  // Write a temp Azure config file and point AZURE_CODEX_PLUGIN_CONFIG at it.
-  const tempDir = makeTempDir("azure-cfg-");
-  const configPath = path.join(tempDir, "azure-openai.json");
-  fs.writeFileSync(configPath, JSON.stringify({
-    apiVersion: "2025-04-01-preview",
-    mainEndpoint: {
-      url: "https://my-resource.cognitiveservices.azure.com",
-      apiKey: "test-key",
-      models: {
-        "gpt-5.4": { tokensPerMinute: 1000000, requestsPerMinute: 10000, isDefault: true }
-      }
-    }
-  }), "utf8");
-
-  const env = {
-    ...buildEnv(binDir),
-    AZURE_CODEX_PLUGIN_CONFIG: configPath
-  };
-
-  const result = run("node", [SCRIPT, "setup", "--json"], {
-    cwd: ROOT,
-    env
-  });
-
-  assert.equal(result.status, 0, result.stderr);
-  const payload = JSON.parse(result.stdout);
-  assert.equal(payload.ready, true);
-  assert.equal(payload.auth.loggedIn, true);
-  assert.equal(payload.auth.authMethod, "azure");
-  assert.equal(payload.auth.source, "azure-config");
-  assert.equal(payload.auth.provider, "azure-openai");
-  assert.match(payload.auth.detail, /Azure OpenAI configured/);
-});
-
-test("setup reports not ready when Azure config is missing", () => {
-  const binDir = makeTempDir();
-  installFakeCodex(binDir);
-
-  const result = run("node", [SCRIPT, "setup", "--json"], {
+  const result = run("node", [SCRIPT, "azure-setup",
+    "--url", "https://test-resource.openai.azure.com",
+    "--api-key", "test-key-123",
+    "--model", "gpt-5.4",
+    "--json"
+  ], {
     cwd: ROOT,
     env: buildEnv(binDir)
   });
 
   assert.equal(result.status, 0, result.stderr);
   const payload = JSON.parse(result.stdout);
-  assert.equal(payload.ready, false);
-  assert.equal(payload.auth.loggedIn, false);
-  assert.equal(payload.auth.source, "azure-config");
-  assert.match(payload.auth.detail, /Azure OpenAI not configured/);
+  assert.equal(payload.success, true);
+  assert.equal(payload.model, "gpt-5.4");
+  assert.match(payload.url, /test-resource/);
+
+  // Verify config.toml was written
+  const toml = fs.readFileSync(payload.configPath, "utf8");
+  assert.match(toml, /model_provider = "azure"/);
+  assert.match(toml, /test-resource\.openai\.azure\.com/);
+  assert.match(toml, /wire_api = "responses"/);
+
+  // Verify credentials file was written
+  const creds = JSON.parse(fs.readFileSync(payload.credentialsPath, "utf8"));
+  assert.equal(creds.apiKey, "test-key-123");
 });
 
 test("review renders a no-findings result from app-server review/start", () => {

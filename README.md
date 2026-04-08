@@ -50,24 +50,18 @@ npm install -g @openai/codex
 
 ### Authentication
 
-Create a configuration file at `~/.claude/azure-claude-codex-plugin.json`:
+Run the Azure setup command:
 
-```json
-{
-  "apiVersion": "2025-04-01-preview",
-  "mainEndpoint": {
-    "url": "https://your-resource.openai.azure.com",
-    "apiKey": "your-api-key",
-    "models": {
-      "gpt-5.4": { "tokensPerMinute": 1000000, "requestsPerMinute": 10000, "isDefault": true }
-    }
-  }
-}
+```bash
+/codex:azure-setup
 ```
 
-Replace `your-resource` with your Azure OpenAI resource name and `your-api-key` with your Azure API key. The `models` object lists the deployments available on your endpoint. The model marked `isDefault` is used when no `--model` flag is provided.
+It will ask for your:
+1. **Azure OpenAI endpoint URL** (e.g. `https://your-resource.openai.azure.com`)
+2. **API key**
+3. **Default model deployment name** (e.g. `gpt-5.4`, `gpt-5.3-codex`)
 
-You can override the config path with the `AZURE_CODEX_PLUGIN_CONFIG` environment variable.
+This writes `~/.codex/config.toml` with the Azure provider settings and stores your credentials locally.
 
 After install, you should see:
 
@@ -290,4 +284,4 @@ This way you can review the Codex work or continue the work there.
 
 ### How does Azure OpenAI work with this plugin?
 
-The Codex CLI has native Azure support. When the plugin detects your `azure-claude-codex-plugin.json`, it writes a `~/.codex/config.toml` with the Azure provider settings and sets the `AZURE_OPENAI_API_KEY` environment variable. The Codex CLI then connects directly to your Azure OpenAI endpoint using the Responses API.
+The Codex CLI has native Azure support. Running `/codex:azure-setup` writes `~/.codex/config.toml` with the Azure provider settings and saves your API key locally. When running tasks or reviews, the plugin sets the `AZURE_OPENAI_API_KEY` environment variable and the Codex CLI connects directly to your Azure OpenAI endpoint using the Responses API.

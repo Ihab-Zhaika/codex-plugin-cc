@@ -15,8 +15,7 @@ import readline from "node:readline";
 import { parseBrokerEndpoint } from "./broker-endpoint.mjs";
 import { ensureBrokerSession, loadBrokerSession } from "./broker-lifecycle.mjs";
 import { terminateProcessTree } from "./process.mjs";
-import { isAzureConfigured, loadAzureConfig, getDefaultAzureModel } from "./azure-config.mjs";
-import { ensureAzureCodexConfig } from "./azure-codex-setup.mjs";
+import { isAzureConfigured, buildAzureEnv } from "./azure-codex-setup.mjs";
 
 const PLUGIN_MANIFEST_URL = new URL("../../.claude-plugin/plugin.json", import.meta.url);
 const PLUGIN_MANIFEST = JSON.parse(fs.readFileSync(PLUGIN_MANIFEST_URL, "utf8"));
@@ -334,8 +333,7 @@ export class CodexAppServerClient {
   static async connect(cwd, options = {}) {
     let effectiveOptions = options;
     if (isAzureConfigured()) {
-      const azureConfig = loadAzureConfig();
-      const azureEnv = ensureAzureCodexConfig(azureConfig, options.env ?? process.env);
+      const azureEnv = buildAzureEnv(options.env ?? process.env);
       effectiveOptions = { ...options, env: azureEnv };
     }
 

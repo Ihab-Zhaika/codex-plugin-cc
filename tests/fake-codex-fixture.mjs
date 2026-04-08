@@ -547,9 +547,6 @@ export function buildEnv(binDir) {
   const sep = process.platform === "win32" ? ";" : ":";
   return {
     ...process.env,
-    PATH: `${binDir}${sep}${process.env.PATH}`,
-    // Disable Azure OpenAI config detection by default in tests. Individual
-    // tests that need Azure can override AZURE_CODEX_PLUGIN_CONFIG to a real file.
-    AZURE_CODEX_PLUGIN_CONFIG: ""
+    PATH: `${binDir}${sep}${process.env.PATH}`
   };
 }

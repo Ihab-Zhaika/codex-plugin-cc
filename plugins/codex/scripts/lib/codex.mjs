@@ -38,7 +38,7 @@ import { readJsonFile } from "./fs.mjs";
 import { BROKER_BUSY_RPC_CODE, BROKER_ENDPOINT_ENV, CodexAppServerClient } from "./app-server.mjs";
 import { loadBrokerSession } from "./broker-lifecycle.mjs";
 import { binaryAvailable } from "./process.mjs";
-import { isAzureConfigured, loadAzureConfig, getDefaultAzureModel } from "./azure-config.mjs";
+import { isAzureConfigured, getConfiguredModel, getConfiguredBaseUrl } from "./azure-codex-setup.mjs";
 
 const SERVICE_NAME = "claude_code_codex_plugin";
 const TASK_THREAD_PREFIX = "Codex Companion Task";
@@ -57,7 +57,7 @@ function cleanCodexStderr(stderr) {
 function buildThreadParams(cwd, options = {}) {
   return {
     cwd,
-    model: options.model ?? getDefaultAzureModel(),
+    model: options.model ?? getConfiguredModel(),
     approvalPolicy: options.approvalPolicy ?? "never",
     sandbox: options.sandbox ?? "read-only",
     serviceName: SERVICE_NAME,
@@ -71,7 +71,7 @@ function buildResumeParams(threadId, cwd, options = {}) {
   return {
     threadId,
     cwd,
-    model: options.model ?? getDefaultAzureModel(),
+    model: options.model ?? getConfiguredModel(),
     approvalPolicy: options.approvalPolicy ?? "never",
     sandbox: options.sandbox ?? "read-only"
   };
@@ -678,22 +678,18 @@ function buildAuthStatus(fields = {}) {
 
 function buildAppServerAuthStatus() {
   if (isAzureConfigured()) {
-    try {
-      const azureConfig = loadAzureConfig();
-      const model = getDefaultAzureModel();
-      const host = new URL(azureConfig.mainEndpoint.url).hostname;
-      return buildAuthStatus({
-        loggedIn: true,
-        detail: `Azure OpenAI configured (${host}${model ? `, model: ${model}` : ""})`,
-        source: "azure-config",
-        authMethod: "azure",
-        verified: false,
-        requiresOpenaiAuth: false,
-        provider: "azure-openai"
-      });
-    } catch {
-      // Config exists but is broken — report as not authenticated.
-    }
+    const model = getConfiguredModel();
+    const baseUrl = getConfiguredBaseUrl();
+    const host = baseUrl ? new URL(baseUrl).hostname : "azure";
+    return buildAuthStatus({
+      loggedIn: true,
+      detail: `Azure OpenAI configured (${host}${model ? `, model: ${model}` : ""})`,
+      source: "azure-config",
+      authMethod: "azure",
+      verified: false,
+      requiresOpenaiAuth: false,
+      provider: "azure-openai"
+    });
   }
 
   return buildAuthStatus({
@@ -908,7 +904,7 @@ export async function runAppServerTurn(cwd, options = {}) {
         client.request("turn/start", {
           threadId,
           input: buildTurnInput(prompt),
-          model: options.model ?? getDefaultAzureModel(),
+          model: options.model ?? getConfiguredModel(),
           effort: options.effort ?? null,
           outputSchema: options.outputSchema ?? null
         }),

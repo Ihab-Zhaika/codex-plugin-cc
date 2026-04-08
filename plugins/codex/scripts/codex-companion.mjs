@@ -61,6 +61,7 @@ import {
   renderStatusReport,
   renderTaskResult
 } from "./lib/render.mjs";
+import { saveAzureSetup, isAzureConfigured, getConfiguredModel, getConfiguredBaseUrl } from "./lib/azure-codex-setup.mjs";
 
 const ROOT_DIR = path.resolve(fileURLToPath(new URL("..", import.meta.url)));
 const REVIEW_SCHEMA = path.join(ROOT_DIR, "schemas", "review-output.schema.json");
@@ -80,7 +81,8 @@ function printUsage() {
       "  node scripts/codex-companion.mjs task [--background] [--write] [--resume-last|--resume|--fresh] [--model <model|spark>] [--effort <none|minimal|low|medium|high|xhigh>] [prompt]",
       "  node scripts/codex-companion.mjs status [job-id] [--all] [--json]",
       "  node scripts/codex-companion.mjs result [job-id] [--json]",
-      "  node scripts/codex-companion.mjs cancel [job-id] [--json]"
+      "  node scripts/codex-companion.mjs cancel [job-id] [--json]",
+      "  node scripts/codex-companion.mjs azure-setup --url <endpoint> --api-key <key> --model <model> [--json]"
     ].join("\n")
   );
 }
@@ -189,7 +191,7 @@ async function buildSetupReport(cwd, actionsTaken = []) {
     nextSteps.push("Install Codex with `npm install -g @openai/codex`.");
   }
   if (codexStatus.available && !authStatus.loggedIn) {
-    nextSteps.push("Create `~/.claude/azure-claude-codex-plugin.json` with your Azure endpoint URL, API key, and default model.");
+    nextSteps.push("Run `/codex:azure-setup` to configure your Azure OpenAI endpoint.");
   }
   if (!config.stopReviewGate) {
     nextSteps.push("Optional: run `/codex:setup --enable-review-gate` to require a fresh review before stop.");
@@ -232,6 +234,49 @@ async function handleSetup(argv) {
 
   const finalReport = await buildSetupReport(cwd, actionsTaken);
   outputResult(options.json ? finalReport : renderSetupReport(finalReport), options.json);
+}
+
+function handleAzureSetup(argv) {
+  const { options } = parseCommandInput(argv, {
+    valueOptions: ["url", "api-key", "model"],
+    booleanOptions: ["json"]
+  });
+
+  const url = options.url;
+  const apiKey = options["api-key"];
+  const model = options.model;
+
+  if (!url || !apiKey || !model) {
+    const missing = [!url && "url", !apiKey && "api-key", !model && "model"].filter(Boolean);
+    throw new Error(`Missing required options: ${missing.map((o) => `--${o}`).join(", ")}`);
+  }
+
+  const result = saveAzureSetup({ url, apiKey, model });
+
+  const payload = {
+    success: true,
+    url,
+    model,
+    configPath: result.configPath,
+    credentialsPath: result.credentialsPath
+  };
+
+  outputResult(
+    options.json
+      ? payload
+      : [
+          "# Azure OpenAI configured",
+          "",
+          `- Endpoint: ${url}`,
+          `- Model: ${model}`,
+          `- Config: ${result.configPath}`,
+          `- Credentials: ${result.credentialsPath}`,
+          "",
+          "Run `/codex:setup` to verify, then try `/codex:review` or `/codex:rescue`.",
+          ""
+        ].join("\n"),
+    options.json
+  );
 }
 
 function buildAdversarialReviewPrompt(context, focusText) {
@@ -1013,6 +1058,9 @@ async function main() {
       break;
     case "cancel":
       await handleCancel(argv);
+      break;
+    case "azure-setup":
+      handleAzureSetup(argv);
       break;
     default:
       throw new Error(`Unknown subcommand: ${subcommand}`);
