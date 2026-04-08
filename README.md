@@ -28,6 +28,12 @@ Install directly from the fork:
 /plugin marketplace add Ihab-Zhaika/codex-plugin-cc
 ```
 
+Install the plugin:
+
+```bash
+/plugin install codex@openai-codex
+```
+
 Reload plugins:
 
 ```bash
