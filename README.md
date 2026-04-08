@@ -56,7 +56,7 @@ Create a configuration file at `~/.claude/azure-claude-codex-plugin.json`:
 {
   "apiVersion": "2025-04-01-preview",
   "mainEndpoint": {
-    "url": "https://your-resource.cognitiveservices.azure.com",
+    "url": "https://your-resource.openai.azure.com",
     "apiKey": "your-api-key",
     "models": {
       "gpt-5.4": { "tokensPerMinute": 1000000, "requestsPerMinute": 10000, "isDefault": true }
@@ -290,6 +290,4 @@ This way you can review the Codex work or continue the work there.
 
 ### How does Azure OpenAI work with this plugin?
 
-The plugin starts a lightweight local proxy on `127.0.0.1` that translates between the OpenAI SDK format (used by the Codex CLI) and the Azure OpenAI Responses API. The proxy rewrites URL paths and swaps the `Authorization` header for Azure's `api-key` header. The request/response body is passed through unchanged since the Responses API format is compatible.
-
-The proxy uses an OS-assigned port and is automatically cleaned up when the Claude Code session ends.
+The Codex CLI has native Azure support. When the plugin detects your `azure-claude-codex-plugin.json`, it writes a `~/.codex/config.toml` with the Azure provider settings and sets the `AZURE_OPENAI_API_KEY` environment variable. The Codex CLI then connects directly to your Azure OpenAI endpoint using the Responses API.

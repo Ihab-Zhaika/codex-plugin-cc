@@ -7,7 +7,7 @@ let cachedConfig = null;
 const EXAMPLE_CONFIG = `{
   "apiVersion": "2025-04-01-preview",
   "mainEndpoint": {
-    "url": "https://your-resource.cognitiveservices.azure.com",
+    "url": "https://your-resource.openai.azure.com",
     "apiKey": "your-api-key",
     "models": {
       "gpt-5.4": { "tokensPerMinute": 1000000, "requestsPerMinute": 10000, "isDefault": true }

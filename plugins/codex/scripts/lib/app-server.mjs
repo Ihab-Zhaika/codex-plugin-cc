@@ -15,8 +15,8 @@ import readline from "node:readline";
 import { parseBrokerEndpoint } from "./broker-endpoint.mjs";
 import { ensureBrokerSession, loadBrokerSession } from "./broker-lifecycle.mjs";
 import { terminateProcessTree } from "./process.mjs";
-import { isAzureConfigured, loadAzureConfig } from "./azure-config.mjs";
-import { ensureAzureProxy } from "./azure-proxy.mjs";
+import { isAzureConfigured, loadAzureConfig, getDefaultAzureModel } from "./azure-config.mjs";
+import { ensureAzureCodexConfig } from "./azure-codex-setup.mjs";
 
 const PLUGIN_MANIFEST_URL = new URL("../../.claude-plugin/plugin.json", import.meta.url);
 const PLUGIN_MANIFEST = JSON.parse(fs.readFileSync(PLUGIN_MANIFEST_URL, "utf8"));
@@ -333,15 +333,9 @@ class BrokerCodexAppServerClient extends AppServerClientBase {
 export class CodexAppServerClient {
   static async connect(cwd, options = {}) {
     let effectiveOptions = options;
-    const baseEnv = options.env ?? process.env;
-    if (isAzureConfigured() && !baseEnv.OPENAI_BASE_URL) {
+    if (isAzureConfigured()) {
       const azureConfig = loadAzureConfig();
-      const proxy = await ensureAzureProxy(azureConfig);
-      const azureEnv = {
-        ...baseEnv,
-        OPENAI_BASE_URL: proxy.baseUrl,
-        OPENAI_API_KEY: "azure-proxy-passthrough"
-      };
+      const azureEnv = ensureAzureCodexConfig(azureConfig, options.env ?? process.env);
       effectiveOptions = { ...options, env: azureEnv };
     }
 
