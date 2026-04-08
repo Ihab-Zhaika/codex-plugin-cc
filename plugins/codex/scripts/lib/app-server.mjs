@@ -15,6 +15,8 @@ import readline from "node:readline";
 import { parseBrokerEndpoint } from "./broker-endpoint.mjs";
 import { ensureBrokerSession, loadBrokerSession } from "./broker-lifecycle.mjs";
 import { terminateProcessTree } from "./process.mjs";
+import { isAzureConfigured, loadAzureConfig } from "./azure-config.mjs";
+import { ensureAzureProxy } from "./azure-proxy.mjs";
 
 const PLUGIN_MANIFEST_URL = new URL("../../.claude-plugin/plugin.json", import.meta.url);
 const PLUGIN_MANIFEST = JSON.parse(fs.readFileSync(PLUGIN_MANIFEST_URL, "utf8"));
@@ -330,20 +332,33 @@ class BrokerCodexAppServerClient extends AppServerClientBase {
 
 export class CodexAppServerClient {
   static async connect(cwd, options = {}) {
+    let effectiveOptions = options;
+    const baseEnv = options.env ?? process.env;
+    if (isAzureConfigured() && !baseEnv.OPENAI_BASE_URL) {
+      const azureConfig = loadAzureConfig();
+      const proxy = await ensureAzureProxy(azureConfig);
+      const azureEnv = {
+        ...baseEnv,
+        OPENAI_BASE_URL: proxy.baseUrl,
+        OPENAI_API_KEY: "azure-proxy-passthrough"
+      };
+      effectiveOptions = { ...options, env: azureEnv };
+    }
+
     let brokerEndpoint = null;
-    if (!options.disableBroker) {
-      brokerEndpoint = options.brokerEndpoint ?? options.env?.[BROKER_ENDPOINT_ENV] ?? process.env[BROKER_ENDPOINT_ENV] ?? null;
-      if (!brokerEndpoint && options.reuseExistingBroker) {
+    if (!effectiveOptions.disableBroker) {
+      brokerEndpoint = effectiveOptions.brokerEndpoint ?? effectiveOptions.env?.[BROKER_ENDPOINT_ENV] ?? process.env[BROKER_ENDPOINT_ENV] ?? null;
+      if (!brokerEndpoint && effectiveOptions.reuseExistingBroker) {
         brokerEndpoint = loadBrokerSession(cwd)?.endpoint ?? null;
       }
-      if (!brokerEndpoint && !options.reuseExistingBroker) {
-        const brokerSession = await ensureBrokerSession(cwd, { env: options.env });
+      if (!brokerEndpoint && !effectiveOptions.reuseExistingBroker) {
+        const brokerSession = await ensureBrokerSession(cwd, { env: effectiveOptions.env });
         brokerEndpoint = brokerSession?.endpoint ?? null;
       }
     }
     const client = brokerEndpoint
-      ? new BrokerCodexAppServerClient(cwd, { ...options, brokerEndpoint })
-      : new SpawnedCodexAppServerClient(cwd, options);
+      ? new BrokerCodexAppServerClient(cwd, { ...effectiveOptions, brokerEndpoint })
+      : new SpawnedCodexAppServerClient(cwd, effectiveOptions);
     await client.initialize();
     return client;
   }

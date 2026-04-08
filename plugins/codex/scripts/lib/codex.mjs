@@ -38,6 +38,7 @@ import { readJsonFile } from "./fs.mjs";
 import { BROKER_BUSY_RPC_CODE, BROKER_ENDPOINT_ENV, CodexAppServerClient } from "./app-server.mjs";
 import { loadBrokerSession } from "./broker-lifecycle.mjs";
 import { binaryAvailable } from "./process.mjs";
+import { isAzureConfigured, loadAzureConfig, getDefaultAzureModel } from "./azure-config.mjs";
 
 const SERVICE_NAME = "claude_code_codex_plugin";
 const TASK_THREAD_PREFIX = "Codex Companion Task";
@@ -664,7 +665,8 @@ function buildResultStatus(turnState) {
 const BUILTIN_PROVIDER_LABELS = new Map([
   ["openai", "OpenAI"],
   ["ollama", "Ollama"],
-  ["lmstudio", "LM Studio"]
+  ["lmstudio", "LM Studio"],
+  ["azure-openai", "Azure OpenAI"]
 ]);
 
 function normalizeProviderId(value) {
@@ -721,6 +723,25 @@ function resolveProviderConfig(configResponse) {
 }
 
 function buildAppServerAuthStatus(accountResponse, configResponse) {
+  if (isAzureConfigured()) {
+    try {
+      const azureConfig = loadAzureConfig();
+      const model = getDefaultAzureModel();
+      const host = new URL(azureConfig.mainEndpoint.url).hostname;
+      return buildAuthStatus({
+        loggedIn: true,
+        detail: `Azure OpenAI configured (${host}${model ? `, model: ${model}` : ""})`,
+        source: "azure-config",
+        authMethod: "azure",
+        verified: false,
+        requiresOpenaiAuth: false,
+        provider: "azure-openai"
+      });
+    } catch {
+      // Fall through to standard auth detection if Azure config is broken.
+    }
+  }
+
   const account = accountResponse?.account ?? null;
   const requiresOpenaiAuth =
     typeof accountResponse?.requiresOpenaiAuth === "boolean" ? accountResponse.requiresOpenaiAuth : null;
@@ -841,6 +862,25 @@ export async function getCodexAuthStatus(cwd, options = {}) {
       requiresOpenaiAuth: null,
       provider: null
     };
+  }
+
+  if (isAzureConfigured()) {
+    try {
+      const azureConfig = loadAzureConfig();
+      const model = getDefaultAzureModel();
+      const host = new URL(azureConfig.mainEndpoint.url).hostname;
+      return buildAuthStatus({
+        loggedIn: true,
+        detail: `Azure OpenAI configured (${host}${model ? `, model: ${model}` : ""})`,
+        source: "azure-config",
+        authMethod: "azure",
+        verified: false,
+        requiresOpenaiAuth: false,
+        provider: "azure-openai"
+      });
+    } catch {
+      // Fall through to standard auth check if Azure config is broken.
+    }
   }
 
   let client = null;

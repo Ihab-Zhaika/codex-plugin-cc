@@ -74,6 +74,8 @@ function buildAccountReadResult() {
       return { account: null, requiresOpenaiAuth: false };
     case "api-key-account-only":
       return { account: { type: "apiKey" }, requiresOpenaiAuth: true };
+    case "azure-auth":
+      return { account: null, requiresOpenaiAuth: true };
     default:
       return {
         account: { type: "chatgpt", email: "test@example.com", planType: "plus" },
@@ -101,6 +103,11 @@ function buildConfigReadResult() {
             }
           }
         },
+        origins: {}
+      };
+    case "azure-auth":
+      return {
+        config: { model_provider: "openai" },
         origins: {}
       };
     default:
@@ -584,6 +591,9 @@ export function buildEnv(binDir) {
   const sep = process.platform === "win32" ? ";" : ":";
   return {
     ...process.env,
-    PATH: `${binDir}${sep}${process.env.PATH}`
+    PATH: `${binDir}${sep}${process.env.PATH}`,
+    // Disable Azure OpenAI config detection by default in tests. Individual
+    // tests that need Azure can override AZURE_OPENAI_CONFIG to a real file.
+    AZURE_OPENAI_CONFIG: ""
   };
 }

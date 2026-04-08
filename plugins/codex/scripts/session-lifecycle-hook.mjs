@@ -5,6 +5,7 @@ import process from "node:process";
 
 import { terminateProcessTree } from "./lib/process.mjs";
 import { BROKER_ENDPOINT_ENV } from "./lib/app-server.mjs";
+import { shutdownAzureProxy } from "./lib/azure-proxy.mjs";
 import {
   clearBrokerSession,
   LOG_FILE_ENV,
@@ -79,6 +80,7 @@ function handleSessionStart(input) {
 }
 
 async function handleSessionEnd(input) {
+  await shutdownAzureProxy().catch(() => {});
   const cwd = input.cwd || process.cwd();
   const brokerSession =
     loadBrokerSession(cwd) ??

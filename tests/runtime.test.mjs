@@ -119,6 +119,44 @@ test("setup treats custom providers with app-server-ready config as ready", () =
   assert.match(payload.auth.detail, /configured and does not require OpenAI authentication/i);
 });
 
+test("setup reports Azure auth when azure-openai.json exists", () => {
+  const binDir = makeTempDir();
+  installFakeCodex(binDir, "azure-auth");
+
+  // Write a temp Azure config file and point AZURE_OPENAI_CONFIG at it.
+  const tempDir = makeTempDir("azure-cfg-");
+  const configPath = path.join(tempDir, "azure-openai.json");
+  fs.writeFileSync(configPath, JSON.stringify({
+    apiVersion: "2025-04-01-preview",
+    mainEndpoint: {
+      url: "https://my-resource.cognitiveservices.azure.com",
+      apiKey: "test-key",
+      models: {
+        "gpt-5.4": { tokensPerMinute: 1000000, requestsPerMinute: 10000, isDefault: true }
+      }
+    }
+  }), "utf8");
+
+  const env = {
+    ...buildEnv(binDir),
+    AZURE_OPENAI_CONFIG: configPath
+  };
+
+  const result = run("node", [SCRIPT, "setup", "--json"], {
+    cwd: ROOT,
+    env
+  });
+
+  assert.equal(result.status, 0, result.stderr);
+  const payload = JSON.parse(result.stdout);
+  assert.equal(payload.ready, true);
+  assert.equal(payload.auth.loggedIn, true);
+  assert.equal(payload.auth.authMethod, "azure");
+  assert.equal(payload.auth.source, "azure-config");
+  assert.equal(payload.auth.provider, "azure-openai");
+  assert.match(payload.auth.detail, /Azure OpenAI configured/);
+});
+
 test("setup reports not ready when app-server config read fails", () => {
   const binDir = makeTempDir();
   installFakeCodex(binDir, "config-read-fails");

@@ -191,6 +191,7 @@ async function buildSetupReport(cwd, actionsTaken = []) {
   if (codexStatus.available && !authStatus.loggedIn && authStatus.requiresOpenaiAuth) {
     nextSteps.push("Run `!codex login`.");
     nextSteps.push("If browser login is blocked, retry with `!codex login --device-auth` or `!codex login --with-api-key`.");
+    nextSteps.push("Or configure Azure OpenAI: create `~/.claude/azure-openai.json` with your endpoint URL and API key.");
   }
   if (!config.stopReviewGate) {
     nextSteps.push("Optional: run `/codex:setup --enable-review-gate` to require a fresh review before stop.");
