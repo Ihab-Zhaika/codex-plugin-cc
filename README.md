@@ -15,8 +15,7 @@ they already have.
 
 ## Requirements
 
-- **ChatGPT subscription (incl. Free), OpenAI API key, or Azure OpenAI endpoint.**
-  - Usage will contribute to your Codex usage limits. [Learn more](https://developers.openai.com/codex/pricing).
+- **Azure OpenAI Cognitive Services endpoint and API key.**
 - **Node.js 18.18 or later**
 
 ## Install
@@ -51,11 +50,7 @@ npm install -g @openai/codex
 
 ### Authentication
 
-You can authenticate with **one** of the following methods:
-
-**Option A: Azure OpenAI (recommended for this fork)**
-
-Create a configuration file at `~/.claude/azure-openai.json`:
+Create a configuration file at `~/.claude/azure-claude-codex-plugin.json`:
 
 ```json
 {
@@ -70,17 +65,9 @@ Create a configuration file at `~/.claude/azure-openai.json`:
 }
 ```
 
-Replace `your-resource` with your Azure OpenAI resource name and `your-api-key` with your Azure API key. The `models` field lists the deployments available on your endpoint.
+Replace `your-resource` with your Azure OpenAI resource name and `your-api-key` with your Azure API key. The `models` object lists the deployments available on your endpoint. The model marked `isDefault` is used when no `--model` flag is provided.
 
-You can also override the config path with the `AZURE_OPENAI_CONFIG` environment variable.
-
-**Option B: ChatGPT subscription or OpenAI API key**
-
-If Codex is installed but not logged in yet, run:
-
-```bash
-!codex login
-```
+You can override the config path with the `AZURE_CODEX_PLUGIN_CONFIG` environment variable.
 
 After install, you should see:
 
@@ -301,37 +288,8 @@ This way you can review the Codex work or continue the work there.
 
 ## FAQ
 
-### Do I need a separate Codex account for this plugin?
-
-If you are already signed into Codex on this machine, that account should work immediately here too. This plugin uses your local Codex CLI authentication.
-
-If you only use Claude Code today and have not used Codex yet, you will also need to sign in to Codex with either a ChatGPT account or an API key. [Codex is available with your ChatGPT subscription](https://developers.openai.com/codex/pricing/), and [`codex login`](https://developers.openai.com/codex/cli/reference/#codex-login) supports both ChatGPT and API key sign-in. Run `/codex:setup` to check whether Codex is ready, and use `!codex login` if it is not.
-
-### Does the plugin use a separate Codex runtime?
-
-No. This plugin delegates through your local [Codex CLI](https://developers.openai.com/codex/cli/) and [Codex app server](https://developers.openai.com/codex/app-server/) on the same machine.
-
-That means:
-
-- it uses the same Codex install you would use directly
-- it uses the same local authentication state
-- it uses the same repository checkout and machine-local environment
-
-### Will it use the same Codex config I already have?
-
-Yes. If you already use Codex, the plugin picks up the same [configuration](#common-configurations).
-
-### Can I keep using my current API key or base URL setup?
-
-Yes. Because the plugin uses your local Codex CLI, your existing sign-in method and config still apply.
-
-If you need to point the built-in OpenAI provider at a different endpoint, set `openai_base_url` in your [Codex config](https://developers.openai.com/codex/config-advanced/#config-and-state-locations).
-
 ### How does Azure OpenAI work with this plugin?
 
-When `~/.claude/azure-openai.json` exists (see [Authentication](#authentication)), the plugin automatically starts a lightweight local proxy on `127.0.0.1` that translates between the OpenAI SDK format (used by Codex) and the Azure OpenAI Responses API. The proxy rewrites URLs and swaps the `Authorization` header for Azure's `api-key` header. The request/response body is passed through unchanged since the Responses API format is compatible.
+The plugin starts a lightweight local proxy on `127.0.0.1` that translates between the OpenAI SDK format (used by the Codex CLI) and the Azure OpenAI Responses API. The proxy rewrites URL paths and swaps the `Authorization` header for Azure's `api-key` header. The request/response body is passed through unchanged since the Responses API format is compatible.
 
 The proxy uses an OS-assigned port and is automatically cleaned up when the Claude Code session ends.
-
-> **Note**: Azure OpenAI configuration takes precedence only when no `OPENAI_BASE_URL`
-> is already set. If you have an existing base URL configured, it will be used instead.

@@ -57,7 +57,7 @@ function cleanCodexStderr(stderr) {
 function buildThreadParams(cwd, options = {}) {
   return {
     cwd,
-    model: options.model ?? null,
+    model: options.model ?? getDefaultAzureModel(),
     approvalPolicy: options.approvalPolicy ?? "never",
     sandbox: options.sandbox ?? "read-only",
     serviceName: SERVICE_NAME,
@@ -71,7 +71,7 @@ function buildResumeParams(threadId, cwd, options = {}) {
   return {
     threadId,
     cwd,
-    model: options.model ?? null,
+    model: options.model ?? getDefaultAzureModel(),
     approvalPolicy: options.approvalPolicy ?? "never",
     sandbox: options.sandbox ?? "read-only"
   };
@@ -662,29 +662,6 @@ function buildResultStatus(turnState) {
   return turnState.finalTurn?.status === "completed" ? 0 : 1;
 }
 
-const BUILTIN_PROVIDER_LABELS = new Map([
-  ["openai", "OpenAI"],
-  ["ollama", "Ollama"],
-  ["lmstudio", "LM Studio"],
-  ["azure-openai", "Azure OpenAI"]
-]);
-
-function normalizeProviderId(value) {
-  const providerId = typeof value === "string" ? value.trim() : "";
-  return providerId || null;
-}
-
-function formatProviderLabel(providerId, providerConfig = null) {
-  const configuredName = typeof providerConfig?.name === "string" ? providerConfig.name.trim() : "";
-  if (configuredName) {
-    return configuredName;
-  }
-  if (!providerId) {
-    return "The active provider";
-  }
-  return BUILTIN_PROVIDER_LABELS.get(providerId) ?? providerId;
-}
-
 function buildAuthStatus(fields = {}) {
   return {
     available: true,
@@ -699,30 +676,7 @@ function buildAuthStatus(fields = {}) {
   };
 }
 
-function resolveProviderConfig(configResponse) {
-  const config = configResponse?.config;
-  if (!config || typeof config !== "object") {
-    return {
-      providerId: null,
-      providerConfig: null
-    };
-  }
-
-  const providerId = normalizeProviderId(config.model_provider);
-  const providers =
-    config.model_providers && typeof config.model_providers === "object" && !Array.isArray(config.model_providers)
-      ? config.model_providers
-      : null;
-  const providerConfig =
-    providerId && providers?.[providerId] && typeof providers[providerId] === "object" ? providers[providerId] : null;
-
-  return {
-    providerId,
-    providerConfig
-  };
-}
-
-function buildAppServerAuthStatus(accountResponse, configResponse) {
+function buildAppServerAuthStatus() {
   if (isAzureConfigured()) {
     try {
       const azureConfig = loadAzureConfig();
@@ -738,76 +692,21 @@ function buildAppServerAuthStatus(accountResponse, configResponse) {
         provider: "azure-openai"
       });
     } catch {
-      // Fall through to standard auth detection if Azure config is broken.
+      // Config exists but is broken — report as not authenticated.
     }
-  }
-
-  const account = accountResponse?.account ?? null;
-  const requiresOpenaiAuth =
-    typeof accountResponse?.requiresOpenaiAuth === "boolean" ? accountResponse.requiresOpenaiAuth : null;
-  const { providerId, providerConfig } = resolveProviderConfig(configResponse);
-  const providerLabel = formatProviderLabel(providerId, providerConfig);
-
-  if (account?.type === "chatgpt") {
-    const email = typeof account.email === "string" && account.email.trim() ? account.email.trim() : null;
-    return buildAuthStatus({
-      loggedIn: true,
-      detail: email ? `ChatGPT login active for ${email}` : "ChatGPT login active",
-      source: "app-server",
-      authMethod: "chatgpt",
-      verified: true,
-      requiresOpenaiAuth,
-      provider: providerId
-    });
-  }
-
-  if (account?.type === "apiKey") {
-    return buildAuthStatus({
-      loggedIn: true,
-      detail: "API key configured (unverified)",
-      source: "app-server",
-      authMethod: "apiKey",
-      verified: false,
-      requiresOpenaiAuth,
-      provider: providerId
-    });
-  }
-
-  if (requiresOpenaiAuth === false) {
-    return buildAuthStatus({
-      loggedIn: true,
-      detail: `${providerLabel} is configured and does not require OpenAI authentication`,
-      source: "app-server",
-      requiresOpenaiAuth,
-      provider: providerId
-    });
   }
 
   return buildAuthStatus({
     loggedIn: false,
-    detail: `${providerLabel} requires OpenAI authentication`,
-    source: "app-server",
-    requiresOpenaiAuth,
-    provider: providerId
+    detail: "Azure OpenAI not configured. Create ~/.claude/azure-claude-codex-plugin.json",
+    source: "azure-config",
+    requiresOpenaiAuth: false,
+    provider: "azure-openai"
   });
 }
 
-async function getCodexAuthStatusFromClient(client, cwd) {
-  try {
-    const accountResponse = await client.request("account/read", { refreshToken: false });
-    const configResponse = await client.request("config/read", {
-      includeLayers: false,
-      cwd
-    });
-
-    return buildAppServerAuthStatus(accountResponse, configResponse);
-  } catch (error) {
-    return buildAuthStatus({
-      loggedIn: false,
-      detail: error instanceof Error ? error.message : String(error),
-      source: "app-server"
-    });
-  }
+function getAzureAuthStatus() {
+  return buildAppServerAuthStatus();
 }
 
 export function getCodexAvailability(cwd) {
@@ -864,43 +763,7 @@ export async function getCodexAuthStatus(cwd, options = {}) {
     };
   }
 
-  if (isAzureConfigured()) {
-    try {
-      const azureConfig = loadAzureConfig();
-      const model = getDefaultAzureModel();
-      const host = new URL(azureConfig.mainEndpoint.url).hostname;
-      return buildAuthStatus({
-        loggedIn: true,
-        detail: `Azure OpenAI configured (${host}${model ? `, model: ${model}` : ""})`,
-        source: "azure-config",
-        authMethod: "azure",
-        verified: false,
-        requiresOpenaiAuth: false,
-        provider: "azure-openai"
-      });
-    } catch {
-      // Fall through to standard auth check if Azure config is broken.
-    }
-  }
-
-  let client = null;
-  try {
-    client = await CodexAppServerClient.connect(cwd, {
-      env: options.env,
-      reuseExistingBroker: true
-    });
-    return await getCodexAuthStatusFromClient(client, cwd);
-  } catch (error) {
-    return buildAuthStatus({
-      loggedIn: false,
-      detail: error instanceof Error ? error.message : String(error),
-      source: "app-server"
-    });
-  } finally {
-    if (client) {
-      await client.close().catch(() => {});
-    }
-  }
+  return getAzureAuthStatus();
 }
 
 export async function interruptAppServerTurn(cwd, { threadId, turnId }) {
@@ -1045,7 +908,7 @@ export async function runAppServerTurn(cwd, options = {}) {
         client.request("turn/start", {
           threadId,
           input: buildTurnInput(prompt),
-          model: options.model ?? null,
+          model: options.model ?? getDefaultAzureModel(),
           effort: options.effort ?? null,
           outputSchema: options.outputSchema ?? null
         }),

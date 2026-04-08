@@ -12,7 +12,7 @@ import {
 } from "../plugins/codex/scripts/lib/azure-config.mjs";
 
 const tempDir = makeTempDir("azure-config-test-");
-const configPath = path.join(tempDir, "azure-openai.json");
+const configPath = path.join(tempDir, "azure-claude-codex-plugin.json");
 
 const VALID_CONFIG = {
   apiVersion: "2025-04-01-preview",
@@ -37,17 +37,17 @@ function removeConfig() {
 }
 
 function setup() {
-  process.env.AZURE_OPENAI_CONFIG = configPath;
+  process.env.AZURE_CODEX_PLUGIN_CONFIG = configPath;
   resetAzureConfig();
 }
 
 function setupDisabled() {
-  process.env.AZURE_OPENAI_CONFIG = "";
+  process.env.AZURE_CODEX_PLUGIN_CONFIG = "";
   resetAzureConfig();
 }
 
 function teardown() {
-  delete process.env.AZURE_OPENAI_CONFIG;
+  delete process.env.AZURE_CODEX_PLUGIN_CONFIG;
   resetAzureConfig();
 }
 
@@ -61,7 +61,7 @@ test("isAzureConfigured returns false when file does not exist", () => {
   }
 });
 
-test("isAzureConfigured returns false when AZURE_OPENAI_CONFIG is empty", () => {
+test("isAzureConfigured returns false when AZURE_CODEX_PLUGIN_CONFIG is empty", () => {
   setupDisabled();
   try {
     assert.equal(isAzureConfigured(), false);

@@ -16,12 +16,12 @@ const EXAMPLE_CONFIG = `{
 }`;
 
 export function getAzureConfigPath() {
-  // When AZURE_OPENAI_CONFIG is set (even to ""), it overrides the default path.
+  // When AZURE_CODEX_PLUGIN_CONFIG is set (even to ""), it overrides the default path.
   // Set to "" to disable Azure config detection entirely.
-  if ("AZURE_OPENAI_CONFIG" in process.env) {
-    return process.env.AZURE_OPENAI_CONFIG;
+  if ("AZURE_CODEX_PLUGIN_CONFIG" in process.env) {
+    return process.env.AZURE_CODEX_PLUGIN_CONFIG;
   }
-  return path.join(os.homedir(), ".claude", "azure-openai.json");
+  return path.join(os.homedir(), ".claude", "azure-claude-codex-plugin.json");
 }
 
 export function isAzureConfigured() {
@@ -45,7 +45,7 @@ export function loadAzureConfig() {
     raw = fs.readFileSync(configPath, "utf-8");
   } catch {
     throw new Error(
-      `Azure OpenAI config file not found at ${configPath}\n\n` +
+      `Azure config file not found at ${configPath}\n\n` +
         `Create the file with the following format:\n${EXAMPLE_CONFIG}`
     );
   }
@@ -55,14 +55,14 @@ export function loadAzureConfig() {
     parsed = JSON.parse(raw);
   } catch {
     throw new Error(
-      `Azure OpenAI config file at ${configPath} contains invalid JSON.\n\n` +
+      `Azure config file at ${configPath} contains invalid JSON.\n\n` +
         `Expected format:\n${EXAMPLE_CONFIG}`
     );
   }
 
   if (!parsed.mainEndpoint || typeof parsed.mainEndpoint !== "object") {
     throw new Error(
-      `Azure OpenAI config is missing "mainEndpoint".\n\n` +
+      `Azure config is missing "mainEndpoint".\n\n` +
         `Expected format:\n${EXAMPLE_CONFIG}`
     );
   }
@@ -71,14 +71,14 @@ export function loadAzureConfig() {
 
   if (!mainEndpoint.url || typeof mainEndpoint.url !== "string") {
     throw new Error(
-      `Azure OpenAI config "mainEndpoint" is missing a valid "url".\n\n` +
+      `Azure config "mainEndpoint" is missing a valid "url".\n\n` +
         `Expected format:\n${EXAMPLE_CONFIG}`
     );
   }
 
   if (!mainEndpoint.apiKey || typeof mainEndpoint.apiKey !== "string") {
     throw new Error(
-      `Azure OpenAI config "mainEndpoint" is missing a valid "apiKey".\n\n` +
+      `Azure config "mainEndpoint" is missing a valid "apiKey".\n\n` +
         `Expected format:\n${EXAMPLE_CONFIG}`
     );
   }

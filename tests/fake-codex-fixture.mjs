@@ -64,58 +64,14 @@ function buildTurn(id, status = "inProgress", error = null) {
 }
 
 function buildAccountReadResult() {
-  switch (BEHAVIOR) {
-    case "logged-out":
-    case "refreshable-auth":
-    case "auth-run-fails":
-      return { account: null, requiresOpenaiAuth: true };
-    case "provider-no-auth":
-    case "env-key-provider":
-      return { account: null, requiresOpenaiAuth: false };
-    case "api-key-account-only":
-      return { account: { type: "apiKey" }, requiresOpenaiAuth: true };
-    case "azure-auth":
-      return { account: null, requiresOpenaiAuth: true };
-    default:
-      return {
-        account: { type: "chatgpt", email: "test@example.com", planType: "plus" },
-        requiresOpenaiAuth: true
-      };
-  }
+  return { account: null, requiresOpenaiAuth: false };
 }
 
 function buildConfigReadResult() {
-  switch (BEHAVIOR) {
-    case "provider-no-auth":
-      return {
-        config: { model_provider: "ollama" },
-        origins: {}
-      };
-    case "env-key-provider":
-      return {
-        config: {
-          model_provider: "openai-custom",
-          model_providers: {
-            "openai-custom": {
-              name: "OpenAI custom",
-              env_key: "OPENAI_API_KEY",
-              requires_openai_auth: false
-            }
-          }
-        },
-        origins: {}
-      };
-    case "azure-auth":
-      return {
-        config: { model_provider: "openai" },
-        origins: {}
-      };
-    default:
-      return {
-        config: { model_provider: "openai" },
-        origins: {}
-      };
-  }
+  return {
+    config: { model_provider: "openai" },
+    origins: {}
+  };
 }
 
 function send(message) {
@@ -593,7 +549,7 @@ export function buildEnv(binDir) {
     ...process.env,
     PATH: `${binDir}${sep}${process.env.PATH}`,
     // Disable Azure OpenAI config detection by default in tests. Individual
-    // tests that need Azure can override AZURE_OPENAI_CONFIG to a real file.
-    AZURE_OPENAI_CONFIG: ""
+    // tests that need Azure can override AZURE_CODEX_PLUGIN_CONFIG to a real file.
+    AZURE_CODEX_PLUGIN_CONFIG: ""
   };
 }

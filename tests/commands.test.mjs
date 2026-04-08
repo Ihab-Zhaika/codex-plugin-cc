@@ -195,7 +195,7 @@ test("hooks keep session-end cleanup and stop gating enabled", () => {
   assert.match(source, /session-lifecycle-hook\.mjs/);
 });
 
-test("setup command can offer Codex install and still points users to codex login", () => {
+test("setup command can offer Codex install and points users to Azure config", () => {
   const setup = read("commands/setup.md");
   const readme = fs.readFileSync(path.join(ROOT, "README.md"), "utf8");
 
@@ -203,7 +203,7 @@ test("setup command can offer Codex install and still points users to codex logi
   assert.match(setup, /AskUserQuestion/);
   assert.match(setup, /npm install -g @openai\/codex/);
   assert.match(setup, /codex-companion\.mjs" setup --json \$ARGUMENTS/);
-  assert.match(readme, /!codex login/);
+  assert.match(readme, /azure-claude-codex-plugin\.json/);
   assert.match(readme, /offer to install Codex for you/i);
   assert.match(readme, /\/codex:setup --enable-review-gate/);
   assert.match(readme, /\/codex:setup --disable-review-gate/);

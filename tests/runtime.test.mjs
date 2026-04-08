@@ -28,7 +28,7 @@ async function waitFor(predicate, { timeoutMs = 5000, intervalMs = 50 } = {}) {
   throw new Error("Timed out waiting for condition.");
 }
 
-test("setup reports ready when fake codex is installed and authenticated", () => {
+test("setup reports not ready without Azure config", () => {
   const binDir = makeTempDir();
   installFakeCodex(binDir);
 
@@ -39,91 +39,17 @@ test("setup reports ready when fake codex is installed and authenticated", () =>
 
   assert.equal(result.status, 0);
   const payload = JSON.parse(result.stdout);
-  assert.equal(payload.ready, true);
+  assert.equal(payload.ready, false);
+  assert.equal(payload.auth.loggedIn, false);
   assert.match(payload.codex.detail, /advanced runtime available/);
   assert.equal(payload.sessionRuntime.mode, "direct");
 });
 
-test("setup is ready without npm when Codex is already installed and authenticated", () => {
+test("setup reports ready with Azure config", () => {
   const binDir = makeTempDir();
   installFakeCodex(binDir);
-  fs.symlinkSync(process.execPath, path.join(binDir, "node"));
 
-  const result = run("node", [SCRIPT, "setup", "--json"], {
-    cwd: ROOT,
-    env: {
-      ...process.env,
-      PATH: binDir
-    }
-  });
-
-  assert.equal(result.status, 0, result.stderr);
-  const payload = JSON.parse(result.stdout);
-  assert.equal(payload.ready, true);
-  assert.equal(payload.npm.available, false);
-  assert.equal(payload.codex.available, true);
-  assert.equal(payload.auth.loggedIn, true);
-});
-
-test("setup trusts app-server API key auth even when login status alone would fail", () => {
-  const binDir = makeTempDir();
-  installFakeCodex(binDir, "api-key-account-only");
-
-  const result = run("node", [SCRIPT, "setup", "--json"], {
-    cwd: ROOT,
-    env: buildEnv(binDir)
-  });
-
-  assert.equal(result.status, 0, result.stderr);
-  const payload = JSON.parse(result.stdout);
-  assert.equal(payload.ready, true);
-  assert.equal(payload.auth.loggedIn, true);
-  assert.equal(payload.auth.authMethod, "apiKey");
-  assert.equal(payload.auth.source, "app-server");
-  assert.match(payload.auth.detail, /API key configured \(unverified\)/);
-});
-
-test("setup is ready when the active provider does not require OpenAI login", () => {
-  const binDir = makeTempDir();
-  installFakeCodex(binDir, "provider-no-auth");
-
-  const result = run("node", [SCRIPT, "setup", "--json"], {
-    cwd: ROOT,
-    env: buildEnv(binDir)
-  });
-
-  assert.equal(result.status, 0, result.stderr);
-  const payload = JSON.parse(result.stdout);
-  assert.equal(payload.ready, true);
-  assert.equal(payload.auth.loggedIn, true);
-  assert.equal(payload.auth.authMethod, null);
-  assert.equal(payload.auth.source, "app-server");
-  assert.match(payload.auth.detail, /configured and does not require OpenAI authentication/i);
-});
-
-test("setup treats custom providers with app-server-ready config as ready", () => {
-  const binDir = makeTempDir();
-  installFakeCodex(binDir, "env-key-provider");
-
-  const result = run("node", [SCRIPT, "setup", "--json"], {
-    cwd: ROOT,
-    env: buildEnv(binDir)
-  });
-
-  assert.equal(result.status, 0, result.stderr);
-  const payload = JSON.parse(result.stdout);
-  assert.equal(payload.ready, true);
-  assert.equal(payload.auth.loggedIn, true);
-  assert.equal(payload.auth.authMethod, null);
-  assert.equal(payload.auth.source, "app-server");
-  assert.match(payload.auth.detail, /configured and does not require OpenAI authentication/i);
-});
-
-test("setup reports Azure auth when azure-openai.json exists", () => {
-  const binDir = makeTempDir();
-  installFakeCodex(binDir, "azure-auth");
-
-  // Write a temp Azure config file and point AZURE_OPENAI_CONFIG at it.
+  // Write a temp Azure config file and point AZURE_CODEX_PLUGIN_CONFIG at it.
   const tempDir = makeTempDir("azure-cfg-");
   const configPath = path.join(tempDir, "azure-openai.json");
   fs.writeFileSync(configPath, JSON.stringify({
@@ -139,7 +65,7 @@ test("setup reports Azure auth when azure-openai.json exists", () => {
 
   const env = {
     ...buildEnv(binDir),
-    AZURE_OPENAI_CONFIG: configPath
+    AZURE_CODEX_PLUGIN_CONFIG: configPath
   };
 
   const result = run("node", [SCRIPT, "setup", "--json"], {
@@ -157,9 +83,9 @@ test("setup reports Azure auth when azure-openai.json exists", () => {
   assert.match(payload.auth.detail, /Azure OpenAI configured/);
 });
 
-test("setup reports not ready when app-server config read fails", () => {
+test("setup reports not ready when Azure config is missing", () => {
   const binDir = makeTempDir();
-  installFakeCodex(binDir, "config-read-fails");
+  installFakeCodex(binDir);
 
   const result = run("node", [SCRIPT, "setup", "--json"], {
     cwd: ROOT,
@@ -170,8 +96,8 @@ test("setup reports not ready when app-server config read fails", () => {
   const payload = JSON.parse(result.stdout);
   assert.equal(payload.ready, false);
   assert.equal(payload.auth.loggedIn, false);
-  assert.equal(payload.auth.source, "app-server");
-  assert.match(payload.auth.detail, /config\/read failed for cwd/);
+  assert.equal(payload.auth.source, "azure-config");
+  assert.match(payload.auth.detail, /Azure OpenAI not configured/);
 });
 
 test("review renders a no-findings result from app-server review/start", () => {
@@ -195,10 +121,10 @@ test("review renders a no-findings result from app-server review/start", () => {
   assert.match(result.stdout, /No material issues found/);
 });
 
-test("task runs when the active provider does not require OpenAI login", () => {
+test("task runs successfully with default fixture behavior", () => {
   const repo = makeTempDir();
   const binDir = makeTempDir();
-  installFakeCodex(binDir, "provider-no-auth");
+  installFakeCodex(binDir);
   initGitRepo(repo);
   fs.writeFileSync(path.join(repo, "README.md"), "hello\n");
   run("git", ["add", "README.md"], { cwd: repo });
@@ -246,7 +172,7 @@ test("task reports the actual Codex auth error when the run is rejected", () => 
   });
 
   assert.notEqual(result.status, 0);
-  assert.match(result.stderr, /authentication expired; run codex login/);
+  assert.match(result.stderr, /authentication expired/);
 });
 
 test("review accepts the quoted raw argument style for built-in base-branch review", () => {
