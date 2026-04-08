@@ -25,7 +25,7 @@ This is a fork of the official Codex plugin with Azure OpenAI Cognitive Services
 Install directly from the fork:
 
 ```bash
-/install-github Ihab-Zhaika/codex-plugin-cc
+/plugin marketplace add Ihab-Zhaika/codex-plugin-cc
 ```
 
 Reload plugins:
